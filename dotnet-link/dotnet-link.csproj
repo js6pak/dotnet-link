@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>DotNetLink</RootNamespace>
+        <PublicizeAsReferenceAssemblies>false</PublicizeAsReferenceAssemblies>
+
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>dotnet-link</ToolCommandName>
+
+        <Version>0.1.0</Version>
+        <Description>Symlink a nuget package for easier development</Description>
+        <Authors>js6pak</Authors>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Spectre.Console" Version="0.44.0" />
+        <PackageReference Include="Spectre.Console.Analyzer" Version="0.44.0" />
+
+        <Reference Include="$(MSBuildToolsPath)/NuGet.*.dll" Private="false" />
+        <Reference Include="$(MSBuildToolsPath)/Microsoft.DotNet.*.dll" Private="false" />
+        <Reference Update="$(MSBuildToolsPath)/Microsoft.DotNet.NativeWrapper.dll" Private="true" /> <!-- Bundle this one so we can use it to find the rest at runtime -->
+        <Reference Include="$(MSBuildToolsPath)/Microsoft.Build.dll" Private="false" />
+        <Reference Include="$(MSBuildToolsPath)/Microsoft.Build.Framework.dll" Private="false" />
+        <Reference Include="$(MSBuildToolsPath)/dotnet.dll" Private="false" />
+
+        <PackageReference Include="Krafs.Publicizer" Version="1.0.2" />
+        <Publicize Include="dotnet" />
+    </ItemGroup>
+</Project>
