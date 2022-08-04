@@ -120,13 +120,13 @@ internal sealed class LinkCommand : Command<LinkCommand.Settings>
             Directory.CreateDirectory(packagePath);
 
             File.WriteAllText(Path.Combine(packagePath, PackagingCoreConstants.NupkgMetadataFileExtension), "{ \"version\": 2, \"contentHash\": null, \"source\": null }");
-            Extensions.CreateSymbolicLink(Path.Combine(packagePath, id + PackagingCoreConstants.NuspecExtension), nuspecPath);
+            Extensions.CreateLink(Path.Combine(packagePath, id + PackagingCoreConstants.NuspecExtension), nuspecPath);
 
             foreach (var manifestFile in manifest.Files)
             {
                 var source = Path.Combine(packagePath, manifestFile.Target);
                 Directory.CreateDirectory(Path.GetDirectoryName(source)!);
-                Extensions.CreateSymbolicLink(source, manifestFile.Source);
+                Extensions.CreateLink(source, manifestFile.Source, !manifestFile.Target.StartsWith("lib/"));
             }
 
             const string tagName = "#E8BF6A";
