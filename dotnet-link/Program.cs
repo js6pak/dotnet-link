@@ -2,10 +2,10 @@
 using DotNetLink;
 using Microsoft.Build.Evaluation;
 using Microsoft.DotNet.Cli.Utils;
-using Microsoft.DotNet.CommandFactory;
 using Microsoft.DotNet.Configurer;
 using Microsoft.DotNet.ShellShim;
 using Microsoft.DotNet.ToolPackage;
+using Microsoft.DotNet.Workloads.Workload.Restore;
 using Microsoft.Extensions.EnvironmentAbstractions;
 using NuGet.Commands;
 using NuGet.Common;
@@ -29,36 +29,60 @@ internal sealed class LinkCommand : Command<LinkCommand.Settings>
 {
     public sealed class Settings : CommandSettings
     {
+        [CommandOption("--project")]
+        public string[] SlnOrProject { get; init; } = Array.Empty<string>();
+
         [CommandOption("-c|--configuration")]
         public string? Configuration { get; init; } = null;
     }
 
-    private static Project? LoadProject(string directory, string? configuration)
+    private static Project LoadProject(string path, string? configuration)
     {
-        var projPath = new ProjectFactory(null).GetMSBuildProjPath(directory);
-        if (projPath == null) return null;
-
         var globalProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["MSBuildExtensionsPath"] = Path.GetDirectoryName(Environment.GetEnvironmentVariable(Constants.MSBUILD_EXE_PATH))!,
         };
         if (configuration != null) globalProperties["Configuration"] = configuration;
 
-        return ProjectCollection.GlobalProjectCollection.LoadProject(projPath, globalProperties, null);
+        return ProjectCollection.GlobalProjectCollection.LoadProject(path, globalProperties, null);
     }
 
     public override int Execute([NotNull] CommandContext context, [NotNull] Settings settings)
     {
-        var project = LoadProject(Directory.GetCurrentDirectory(), settings.Configuration);
-        if (project == null)
+        var allProjects = WorkloadRestoreCommand.DiscoverAllProjects(Directory.GetCurrentDirectory(), settings.SlnOrProject);
+
+        if (allProjects == null || !allProjects.Any())
         {
-            AnsiConsole.MarkupLine("[red]Couldn't find a project in current directory[/]");
+            AnsiConsole.MarkupLine("[red]No projects found, you can specify one with --project[/]");
             return 1;
         }
 
-        var intermediateOutputPath = Path.Combine(project.DirectoryPath, project.GetPropertyValue("BaseIntermediateOutputPath")!);
+        foreach (var projectPath in allProjects)
+        {
+            Project project;
 
-        var nuspecOutputPath = Path.Combine(project.DirectoryPath, project.GetPropertyValue("NuspecOutputPath")!);
+            try
+            {
+                project = LoadProject(projectPath, settings.Configuration);
+            }
+            catch (Exception)
+            {
+                AnsiConsole.MarkupLineInterpolated($"Failed to load [cyan]{projectPath}[/]");
+                continue;
+            }
+
+            AnsiConsole.MarkupLine($"Linking [cyan]{projectPath}[/]");
+            Link(project);
+        }
+
+        return 0;
+    }
+
+    private static void Link(Project project)
+    {
+        var intermediateOutputPath = Path.Combine(project.DirectoryPath, project.GetPropertyValue("BaseIntermediateOutputPath")!).Replace('\\', '/');
+
+        var nuspecOutputPath = Path.Combine(project.DirectoryPath, project.GetPropertyValue("NuspecOutputPath")!).Replace('\\', '/');
 
         var packageId = project.GetPropertyValue("PackageId")!;
         var packageVersion = NuGetVersion.Parse(project.GetPropertyValue("PackageVersion")!);
@@ -68,7 +92,7 @@ internal sealed class LinkCommand : Command<LinkCommand.Settings>
         if (!File.Exists(nuspecPath))
         {
             AnsiConsole.MarkupLine($"[red]{nuspecPath} doesn't exist[/]");
-            return 1;
+            return;
         }
 
         AnsiConsole.MarkupLine($"Linking [cyan]{nuspecPath.TrimCurrentDirectory()}[/]");
@@ -134,7 +158,5 @@ internal sealed class LinkCommand : Command<LinkCommand.Settings>
             const string attributeValue = "#6A8759";
             AnsiConsole.MarkupLine($"[{tagName}]<PackageReference[/] [{attributeName}]Include[/][{attributeValue}]=\"{manifest.Metadata.Id}\"[/] [{attributeName}]Version[/][{attributeValue}]=\"{manifest.Metadata.Version}\"[/] [{tagName}]/>[/]");
         }
-
-        return 0;
     }
 }

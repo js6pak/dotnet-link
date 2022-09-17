@@ -28,6 +28,6 @@
         <Reference Include="$(MSBuildToolsPath)/Microsoft.Build.Framework.dll" Private="false" />
         <Reference Include="$(MSBuildToolsPath)/dotnet.dll" Private="false" Publicize="true" />
 
-        <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.1.0" />
+        <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.2.0" />
     </ItemGroup>
 </Project>
