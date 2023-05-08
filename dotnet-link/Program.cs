@@ -18,7 +18,7 @@ using CommandContext = Spectre.Console.Cli.CommandContext;
 
 if (!SdkFinder.Initialize())
 {
-    AnsiConsole.MarkupLine("[red]Failed to find a compatible .NET SDK\ndotnet-link requires 6.0.x sdk to be installed[/]");
+    AnsiConsole.MarkupLine("[red]Failed to find a compatible .NET SDK\ndotnet-link requires 7.0.x sdk to be installed[/]");
     return 1;
 }
 

@@ -14,7 +14,7 @@ internal static class SdkFinder
             return false;
         }
 
-        SdkDirectory = Directory.GetDirectories(Path.Combine(dotnetExeDirectory, "sdk")).LastOrDefault(p => Path.GetFileName(p).StartsWith("6.0."));
+        SdkDirectory = Directory.GetDirectories(Path.Combine(dotnetExeDirectory, "sdk")).LastOrDefault(p => Path.GetFileName(p).StartsWith("7.0."));
         if (SdkDirectory == null)
         {
             return false;
