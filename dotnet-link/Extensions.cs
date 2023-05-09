@@ -1,16 +1,17 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-using Spectre.Console;
+using Microsoft.DotNet.Cli.Utils;
 
 namespace DotNetLink;
 
-internal static class Extensions
+internal static partial class Extensions
 {
-    [DllImport("libc", CharSet = CharSet.Ansi, SetLastError = true)]
-    private static extern int link(string oldpath, string newpath);
+    [LibraryImport("libSystem.Native", EntryPoint = "SystemNative_Link", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
+    private static partial int Link(string source, string link);
 
-    [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool CreateHardLink(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
+    [LibraryImport("kernel32", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool CreateHardLink(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
 
     public static void CreateLink(string path, string pathToTarget, bool symbolic = true)
     {
@@ -22,21 +23,17 @@ internal static class Extensions
         }
         else
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                if (link(pathToTarget, path) != 0) throw new Win32Exception();
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 if (!CreateHardLink(path, pathToTarget, IntPtr.Zero)) throw new Win32Exception();
             }
             else
             {
-                throw new PlatformNotSupportedException();
+                if (Link(pathToTarget, path) != 0) throw new Win32Exception();
             }
         }
 
-        AnsiConsole.MarkupLine($"Linked [cyan]{path.TrimCurrentDirectory()}[/] to [cyan]{pathToTarget.TrimCurrentDirectory()}[/]");
+        Reporter.Output.WriteLine($"Linked {path.TrimCurrentDirectory().Cyan()} to {pathToTarget.TrimCurrentDirectory().Cyan()}");
     }
 
     public static string TrimStart(this string text, string value)

@@ -11,22 +11,21 @@
         <PackAsTool>true</PackAsTool>
         <ToolCommandName>dotnet-link</ToolCommandName>
 
-        <Version>0.2.0</Version>
+        <VersionPrefix>0.3.0</VersionPrefix>
+        <VersionSuffix>dev</VersionSuffix>
         <Description>Symlink a nuget package for easier development</Description>
         <Authors>js6pak</Authors>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Spectre.Console" Version="0.46.0" />
-        <PackageReference Include="Spectre.Console.Cli" Version="0.46.0" />
-        <PackageReference Include="Spectre.Console.Analyzer" Version="0.46.0" PrivateAssets="all" />
-
+        <Reference Include="$(MSBuildToolsPath)/System.CommandLine.dll" Private="false" />
         <Reference Include="$(MSBuildToolsPath)/NuGet.*.dll" Private="false" />
         <Reference Include="$(MSBuildToolsPath)/Microsoft.DotNet.*.dll" Private="false" />
         <Reference Update="$(MSBuildToolsPath)/Microsoft.DotNet.NativeWrapper.dll" Private="true" /> <!-- Bundle this one so we can use it to find the rest at runtime -->
         <Reference Include="$(MSBuildToolsPath)/Microsoft.Build.dll" Private="false" />
         <Reference Include="$(MSBuildToolsPath)/Microsoft.Build.Framework.dll" Private="false" />
+        <Reference Include="$(MSBuildToolsPath)/MSBuild.dll" Private="false" Publicize="true" />
         <Reference Include="$(MSBuildToolsPath)/dotnet.dll" Private="false" Publicize="true" />
 
         <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.1" PrivateAssets="all" />

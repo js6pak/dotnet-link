@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace DotNetLink;
 
@@ -14,6 +15,9 @@ internal static class SdkFinder
             return false;
         }
 
+        var exeSuffix = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : string.Empty;
+        Environment.SetEnvironmentVariable("DOTNET_HOST_PATH", Path.Combine(dotnetExeDirectory, "dotnet" + exeSuffix));
+
         SdkDirectory = Directory.GetDirectories(Path.Combine(dotnetExeDirectory, "sdk")).LastOrDefault(p => Path.GetFileName(p).StartsWith("7.0."));
         if (SdkDirectory == null)
         {
@@ -21,6 +25,8 @@ internal static class SdkFinder
         }
 
         Environment.SetEnvironmentVariable("MSBUILD_EXE_PATH", Path.Combine(SdkDirectory, "MSBuild.dll"));
+        Environment.SetEnvironmentVariable("MSBuildExtensionsPath", SdkDirectory);
+        Environment.SetEnvironmentVariable("MSBuildSDKsPath", Path.Combine(SdkDirectory, "Sdks"));
 
         AppDomain.CurrentDomain.AssemblyResolve += (_, e) =>
         {
