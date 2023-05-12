@@ -16,6 +16,8 @@
         <Description>Symlink a nuget package for easier development</Description>
         <Authors>js6pak</Authors>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/js6pak/dotnet-link</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
     </PropertyGroup>
 
 	<PropertyGroup>
