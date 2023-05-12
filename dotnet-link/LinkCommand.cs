@@ -194,7 +194,7 @@ public class LinkCommand : CommandBase
             {
                 var source = Path.Combine(packagePath, manifestFile.Target);
                 Directory.CreateDirectory(Path.GetDirectoryName(source)!);
-                Extensions.CreateLink(source, manifestFile.Source, !manifestFile.Target.StartsWith("lib/"));
+                Extensions.CreateLink(source, manifestFile.Source, !manifestFile.Target.StartsWith("lib"));
             }
 
             var tagName = Color.FromArgb(0xE8, 0xBF, 0x6A);
@@ -218,7 +218,7 @@ public class LinkCommand : CommandBase
 
             packageReferenceBuilder.Append("/>".Color(tagName));
 
-            Console.WriteLine(packageReferenceBuilder.ToString());
+            Reporter.Output.WriteLine(packageReferenceBuilder.ToString());
         }
     }
 

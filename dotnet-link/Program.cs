@@ -14,6 +14,11 @@ return await InvokeAsync(args);
 
 static async Task<int> InvokeAsync(string[] args)
 {
+    if (RgbAnsiColorExtensions.EnableAnsi())
+    {
+        Environment.SetEnvironmentVariable("DOTNET_CLI_CONTEXT_ANSI_PASS_THRU", "true");
+    }
+
     // Based on https://github.com/dotnet/sdk/blob/v7.0.203/src/Cli/dotnet/Parser.cs#L146
     var parser = new CommandLineBuilder(LinkCommandParser.GetCommand())
         .UseExceptionHandler(Parser.ExceptionHandler)

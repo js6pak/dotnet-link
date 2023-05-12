@@ -18,15 +18,20 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
     </PropertyGroup>
 
+	<PropertyGroup>
+		<DotNetSdk Condition="'$(MSBuildRuntimeType)' == 'Core'">$(MSBuildToolsPath)</DotNetSdk>
+		<DotNetSdk Condition="'$(MSBuildRuntimeType)' != 'Core'">$(NetCoreRoot)/sdk/$(NETCoreSdkVersion)</DotNetSdk>
+	</PropertyGroup>
+
     <ItemGroup>
-        <Reference Include="$(MSBuildToolsPath)/System.CommandLine.dll" Private="false" />
-        <Reference Include="$(MSBuildToolsPath)/NuGet.*.dll" Private="false" />
-        <Reference Include="$(MSBuildToolsPath)/Microsoft.DotNet.*.dll" Private="false" />
-        <Reference Update="$(MSBuildToolsPath)/Microsoft.DotNet.NativeWrapper.dll" Private="true" /> <!-- Bundle this one so we can use it to find the rest at runtime -->
-        <Reference Include="$(MSBuildToolsPath)/Microsoft.Build.dll" Private="false" />
-        <Reference Include="$(MSBuildToolsPath)/Microsoft.Build.Framework.dll" Private="false" />
-        <Reference Include="$(MSBuildToolsPath)/MSBuild.dll" Private="false" Publicize="true" />
-        <Reference Include="$(MSBuildToolsPath)/dotnet.dll" Private="false" Publicize="true" />
+        <Reference Include="$(DotNetSdk)/System.CommandLine.dll" Private="false" />
+        <Reference Include="$(DotNetSdk)/NuGet.*.dll" Private="false" />
+        <Reference Include="$(DotNetSdk)/Microsoft.DotNet.*.dll" Private="false" />
+        <Reference Update="$(DotNetSdk)/Microsoft.DotNet.NativeWrapper.dll" Private="true" /> <!-- Bundle this one so we can use it to find the rest at runtime -->
+        <Reference Include="$(DotNetSdk)/Microsoft.Build.dll" Private="false" />
+        <Reference Include="$(DotNetSdk)/Microsoft.Build.Framework.dll" Private="false" />
+        <Reference Include="$(DotNetSdk)/MSBuild.dll" Private="false" Publicize="true" />
+        <Reference Include="$(DotNetSdk)/dotnet.dll" Private="false" Publicize="true" />
 
         <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.1" PrivateAssets="all" />
     </ItemGroup>

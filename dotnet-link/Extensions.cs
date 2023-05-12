@@ -11,7 +11,9 @@ internal static partial class Extensions
 
     [LibraryImport("kernel32", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool CreateHardLink(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
+    private static partial bool CreateHardLinkW(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
+
+    private const int ErrorPrivilegeNotHeld = unchecked((int)0x80070522);
 
     public static void CreateLink(string path, string pathToTarget, bool symbolic = true)
     {
@@ -19,13 +21,28 @@ internal static partial class Extensions
 
         if (symbolic)
         {
-            File.CreateSymbolicLink(path, pathToTarget);
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                try
+                {
+                    File.CreateSymbolicLink(path, pathToTarget);
+                }
+                catch (IOException e) when (e.HResult == ErrorPrivilegeNotHeld)
+                {
+                    Reporter.Error.WriteLine("You don't have privileges to create a symlink\nMake sure to enable Developer Mode in Windows \"For developers\" settings".Yellow());
+                    throw;
+                }
+            }
+            else
+            {
+                File.CreateSymbolicLink(path, pathToTarget);
+            }
         }
         else
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                if (!CreateHardLink(path, pathToTarget, IntPtr.Zero)) throw new Win32Exception();
+                if (!CreateHardLinkW(path, pathToTarget, IntPtr.Zero)) throw new Win32Exception();
             }
             else
             {
@@ -33,7 +50,7 @@ internal static partial class Extensions
             }
         }
 
-        Reporter.Output.WriteLine($"Linked {path.TrimCurrentDirectory().Cyan()} to {pathToTarget.TrimCurrentDirectory().Cyan()}");
+        Reporter.Output.WriteLine($"Linked {path.TrimCurrentDirectory().Cyan()} to {pathToTarget.TrimCurrentDirectory().Cyan()} ({(symbolic ? "symbolic" : "hard")})");
     }
 
     public static string TrimStart(this string text, string value)
