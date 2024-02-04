@@ -7,6 +7,14 @@ internal static class SdkFinder
 {
     public static string? SdkDirectory { get; private set; }
 
+    public const string TargetVersion =
+#if NET8_0
+            "8.0"
+#elif NET7_0
+            "7.0"
+#endif
+        ;
+
     public static bool Initialize()
     {
         var dotnetExeDirectory = Microsoft.DotNet.NativeWrapper.EnvironmentProvider.GetDotnetExeDirectory();
@@ -18,7 +26,7 @@ internal static class SdkFinder
         var exeSuffix = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : string.Empty;
         Environment.SetEnvironmentVariable("DOTNET_HOST_PATH", Path.Combine(dotnetExeDirectory, "dotnet" + exeSuffix));
 
-        SdkDirectory = Directory.GetDirectories(Path.Combine(dotnetExeDirectory, "sdk")).LastOrDefault(p => Path.GetFileName(p).StartsWith("7.0."));
+        SdkDirectory = Directory.GetDirectories(Path.Combine(dotnetExeDirectory, "sdk")).LastOrDefault(p => Path.GetFileName(p).StartsWith($"{TargetVersion}."));
         if (SdkDirectory == null)
         {
             return false;

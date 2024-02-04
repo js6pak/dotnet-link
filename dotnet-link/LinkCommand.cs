@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.CommandLine.Parsing;
 using System.Drawing;
 using System.Text;
 using Microsoft.Build.CommandLine;
@@ -26,7 +25,7 @@ public class LinkCommand : CommandBase
 
     private LinkCommand(ParseResult parseResult) : base(parseResult)
     {
-        _slnOrProjectArgument = parseResult.GetValueForArgument(LinkCommandParser.SlnOrProjectArgument);
+        _slnOrProjectArgument = parseResult.GetValue(LinkCommandParser.SlnOrProjectArgument);
     }
 
     private static void ParseMSBuildArgs(IEnumerable<string> msbuildArgs, out Dictionary<string, string> globalProperties, out string projectFile)
@@ -69,7 +68,7 @@ public class LinkCommand : CommandBase
             return 1;
         }
 
-        var noPack = _parseResult.HasOption(LinkCommandParser.NoPackOption);
+        var noPack = _parseResult.GetValue(LinkCommandParser.NoPackOption);
         if (!noPack)
         {
             Reporter.Output.WriteLine("Building and packing first...");

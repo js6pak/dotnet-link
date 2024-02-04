@@ -7,38 +7,40 @@ namespace DotNetLink;
 
 internal static class LinkCommandParser
 {
-    public static readonly Argument<IEnumerable<string>?> SlnOrProjectArgument = new(CommonLocalizableStrings.SolutionOrProjectArgumentName)
+    public static readonly CliArgument<IEnumerable<string>?> SlnOrProjectArgument = new(CommonLocalizableStrings.SolutionOrProjectArgumentName)
     {
         Description = CommonLocalizableStrings.SolutionOrProjectArgumentDescription,
         Arity = ArgumentArity.ZeroOrMore,
     };
 
-    public static readonly Option<bool> NoPackOption = new("--no-pack", "Do not build and pack the project before linking");
+    public static readonly CliOption<bool> NoPackOption = new("--no-pack") { Description = "Do not build and pack the project before linking" };
 
-    public static readonly Option<string> ConfigurationOption = CommonOptions.ConfigurationOption(PackLocalizableStrings.ConfigurationOptionDescription);
+    public static readonly CliOption<string> ConfigurationOption = CommonOptions.ConfigurationOption(PackLocalizableStrings.ConfigurationOptionDescription);
 
-    private static readonly Command Command = ConstructCommand();
+    private static readonly CliCommand Command = ConstructCommand();
 
-    public static Command GetCommand()
+    public static CliCommand GetCommand()
     {
         return Command;
     }
 
-    private static Command ConstructCommand()
+    private static CliCommand ConstructCommand()
     {
-        NoPackOption.AddAlias("--no-build");
-        
-        var command = new Command("link", "Symlinks a nuget package for easier development");
+        NoPackOption.Aliases.Add("--no-build");
 
-        command.AddArgument(SlnOrProjectArgument);
-        command.AddOption(NoPackOption);
-        command.AddOption(CommonOptions.InteractiveMsBuildForwardOption);
-        command.AddOption(CommonOptions.VerbosityOption);
-        command.AddOption(CommonOptions.VersionSuffixOption);
-        command.AddOption(ConfigurationOption);
+        var command = new CliRootCommand("Symlinks a nuget package for easier development")
+        {
+            SlnOrProjectArgument,
+            NoPackOption,
+            CommonOptions.InteractiveMsBuildForwardOption,
+            CommonOptions.VerbosityOption,
+            CommonOptions.VersionSuffixOption,
+            ConfigurationOption,
+        };
+
         RestoreCommandParser.AddImplicitRestoreOptions(command, includeRuntimeOption: true, includeNoDependenciesOption: true);
 
-        command.SetHandler(LinkCommand.Run);
+        command.SetAction(LinkCommand.Run);
 
         return command;
     }
