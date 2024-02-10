@@ -189,6 +189,7 @@ public class LinkCommand : CommandBase
             var packagesPath = Path.Combine(NuGetEnvironment.GetFolderPath(NuGetFolderPath.NuGetHome), "packages");
 
             var packagePath = Path.Combine(packagesPath, id, manifest.Metadata.Version.ToNormalizedString().ToLower());
+            if (Directory.Exists(packagePath)) Directory.Delete(packagePath, true);
             Directory.CreateDirectory(packagePath);
 
             File.WriteAllText(Path.Combine(packagePath, PackagingCoreConstants.NupkgMetadataFileExtension), "{ \"version\": 2, \"contentHash\": null, \"source\": null }");
