@@ -144,12 +144,17 @@ public class LinkCommand : CommandBase
         var manifest = Manifest.ReadFrom(fileStream, true);
 
         var isTool = false;
+        var isMSBuildSdk = false;
 
         foreach (var packageType in manifest.Metadata.PackageTypes)
         {
             if (packageType == PackageType.DotnetTool)
             {
                 isTool = true;
+            }
+            else if (PackageType.PackageTypeNameComparer.Equals(packageType.Name, "MSBuildSdk"))
+            {
+                isMSBuildSdk = true;
             }
             else
             {
@@ -202,20 +207,41 @@ public class LinkCommand : CommandBase
 
             var packageReferenceBuilder = new StringBuilder();
 
-            packageReferenceBuilder.Append("<PackageReference".Color(tagName));
-            packageReferenceBuilder.Append(' ');
-            packageReferenceBuilder.Append("Include".Color(attributeName) + $"=\"{manifest.Metadata.Id}\"".Color(attributeValue));
-            packageReferenceBuilder.Append(' ');
-            packageReferenceBuilder.Append("Version".Color(attributeName) + $"=\"{manifest.Metadata.Version}\"".Color(attributeValue));
-            packageReferenceBuilder.Append(' ');
-
-            if (project.GetPropertyValue("DevelopmentDependency")?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false)
+            if (isMSBuildSdk)
             {
-                packageReferenceBuilder.Append("PrivateAssets".Color(attributeName) + "=\"all\"".Color(attributeValue));
+                packageReferenceBuilder.Append("<Project".Color(tagName));
                 packageReferenceBuilder.Append(' ');
-            }
+                packageReferenceBuilder.Append("Sdk".Color(attributeName));
+                packageReferenceBuilder.Append($"=\"{manifest.Metadata.Id}/{manifest.Metadata.Version}\"".Color(attributeValue));
+                packageReferenceBuilder.Append(">".Color(tagName));
 
-            packageReferenceBuilder.Append("/>".Color(tagName));
+                packageReferenceBuilder.AppendLine();
+                packageReferenceBuilder.AppendLine("or");
+
+                packageReferenceBuilder.Append("<Sdk".Color(tagName));
+                packageReferenceBuilder.Append(' ');
+                packageReferenceBuilder.Append("Name".Color(attributeName) + $"=\"{manifest.Metadata.Id}\"".Color(attributeValue));
+                packageReferenceBuilder.Append(' ');
+                packageReferenceBuilder.Append("Version".Color(attributeName) + $"=\"{manifest.Metadata.Version}\"".Color(attributeValue));
+                packageReferenceBuilder.Append(" />".Color(tagName));
+            }
+            else
+            {
+                packageReferenceBuilder.Append("<PackageReference".Color(tagName));
+                packageReferenceBuilder.Append(' ');
+                packageReferenceBuilder.Append("Include".Color(attributeName) + $"=\"{manifest.Metadata.Id}\"".Color(attributeValue));
+                packageReferenceBuilder.Append(' ');
+                packageReferenceBuilder.Append("Version".Color(attributeName) + $"=\"{manifest.Metadata.Version}\"".Color(attributeValue));
+                packageReferenceBuilder.Append(' ');
+
+                if (project.GetPropertyValue("DevelopmentDependency")?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false)
+                {
+                    packageReferenceBuilder.Append("PrivateAssets".Color(attributeName) + "=\"all\"".Color(attributeValue));
+                    packageReferenceBuilder.Append(' ');
+                }
+
+                packageReferenceBuilder.Append("/>".Color(tagName));
+            }
 
             Reporter.Output.WriteLine(packageReferenceBuilder.ToString());
         }
