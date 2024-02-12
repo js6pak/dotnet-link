@@ -1,0 +1,18 @@
+<Project>
+    <Sdk Name="OpinionPak.Sdk" Version="0.1.0-alpha.1" />
+
+    <PropertyGroup>
+        <UseArtifactsOutput>true</UseArtifactsOutput>
+        <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <Authors>js6pak</Authors>
+        <Copyright>2022 js6pak</Copyright>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/js6pak/dotnet-link</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+
+        <NanoVerTagPrefix>v</NanoVerTagPrefix>
+    </PropertyGroup>
+</Project>

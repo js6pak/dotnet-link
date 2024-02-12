@@ -2,8 +2,6 @@
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>net$(BundledNETCoreAppTargetFrameworkVersion)</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
         <RootNamespace>DotNetLink</RootNamespace>
         <InvariantGlobalization>true</InvariantGlobalization>
 
@@ -11,13 +9,10 @@
         <PackAsTool>true</PackAsTool>
         <ToolCommandName>dotnet-link</ToolCommandName>
 
-        <VersionPrefix>0.3.0</VersionPrefix>
-        <VersionSuffix>dev</VersionSuffix>
         <Description>Symlink a nuget package for easier development</Description>
-        <Authors>js6pak</Authors>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <RepositoryUrl>https://github.com/js6pak/dotnet-link</RepositoryUrl>
-        <RepositoryType>git</RepositoryType>
+
+        <!-- Suppress NU5132 for Microsoft.DotNet.NativeWrapper -->
+        <NoWarn>$(NoWarn);NU5132</NoWarn>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -35,7 +30,7 @@
         <Reference Include="$(DotNetSdk)/MSBuild.dll" Private="false" Publicize="true" />
         <Reference Include="$(DotNetSdk)/dotnet.dll" Private="false" Publicize="true" />
 
-        <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.1" PrivateAssets="all" />
+        <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.2" PrivateAssets="all" />
     </ItemGroup>
 
     <Target Name="RemoveSatellites" AfterTargets="ResolveAssemblyReferences">

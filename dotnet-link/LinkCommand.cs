@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2022 js6pak
+
 using System.CommandLine;
 using System.Drawing;
 using System.Text;
@@ -19,7 +22,7 @@ using NuGet.Versioning;
 
 namespace DotNetLink;
 
-public class LinkCommand : CommandBase
+internal sealed class LinkCommand : CommandBase
 {
     private readonly IEnumerable<string>? _slnOrProjectArgument;
 
@@ -31,12 +34,26 @@ public class LinkCommand : CommandBase
     private static void ParseMSBuildArgs(IEnumerable<string> msbuildArgs, out Dictionary<string, string> globalProperties, out string projectFile)
     {
         var commandLine = msbuildArgs.Prepend(BuildEnvironmentHelper.Instance.CurrentMSBuildExePath).ToArray();
-        MSBuildApp.GatherAllSwitches(commandLine, out var switchesFromAutoResponseFile, out var switchesNotFromAutoResponseFile, out var fullCommandLine);
+        MSBuildApp.GatherAllSwitches(
+            commandLine,
+            out var switchesFromAutoResponseFile,
+            out var switchesNotFromAutoResponseFile,
+            out var fullCommandLine
+        );
 
-        var commandLineSwitches = MSBuildApp.CombineSwitchesRespectingPriority(switchesFromAutoResponseFile, switchesNotFromAutoResponseFile, fullCommandLine);
+        var commandLineSwitches = MSBuildApp.CombineSwitchesRespectingPriority(
+            switchesFromAutoResponseFile,
+            switchesNotFromAutoResponseFile,
+            fullCommandLine
+        );
+
         globalProperties = MSBuildApp.ProcessPropertySwitch(commandLineSwitches[CommandLineSwitches.ParameterizedSwitch.Property]);
 
-        projectFile = MSBuildApp.ProcessProjectSwitch(commandLineSwitches[CommandLineSwitches.ParameterizedSwitch.Project], commandLineSwitches[CommandLineSwitches.ParameterizedSwitch.IgnoreProjectExtensions], Directory.GetFiles);
+        projectFile = MSBuildApp.ProcessProjectSwitch(
+            commandLineSwitches[CommandLineSwitches.ParameterizedSwitch.Project],
+            commandLineSwitches[CommandLineSwitches.ParameterizedSwitch.IgnoreProjectExtensions],
+            Directory.GetFiles
+        );
     }
 
     private static int RunMSBuild(IEnumerable<string> args)
@@ -51,7 +68,7 @@ public class LinkCommand : CommandBase
     {
         var msbuildArgs = new List<string>();
 
-        msbuildArgs.AddRange(_parseResult.OptionValuesToBeForwarded(LinkCommandParser.GetCommand()));
+        msbuildArgs.AddRange(_parseResult.OptionValuesToBeForwarded(LinkCommandParser.Command));
         if (_slnOrProjectArgument != null) msbuildArgs.AddRange(_slnOrProjectArgument);
         msbuildArgs.Add("-target:Restore;Build;Pack");
 
@@ -172,7 +189,8 @@ public class LinkCommand : CommandBase
                 Directory.Delete(packagePath);
             }
 
-            var toolConfiguration = ToolConfigurationDeserializer.Deserialize(Path.Combine(intermediateOutputPath, ToolPackageInstance.ToolSettingsFileName));
+            var toolSettingsPath = Path.Combine(intermediateOutputPath, ToolPackageInstance.ToolSettingsFileName);
+            var toolConfiguration = ToolConfigurationDeserializer.Deserialize(toolSettingsPath);
             var toolCommandName = new ToolCommandName(toolConfiguration.CommandName);
 
             var targetExecutablePath = manifest.Files.Single(f => f.Target.EndsWith(toolConfiguration.ToolAssemblyEntryPoint)).Source!;
@@ -182,7 +200,8 @@ public class LinkCommand : CommandBase
             repo.RemoveShim(toolCommandName);
             repo.CreateShim(new FilePath(targetExecutablePath), toolCommandName);
 
-            Reporter.Output.WriteLine($"Created a shim {Path.Combine(CliFolderPathCalculator.ToolsShimPath, toolConfiguration.CommandName).TrimCurrentDirectory().Cyan()} to {targetExecutablePath.Cyan()}");
+            var shimPath = Path.Combine(CliFolderPathCalculator.ToolsShimPath, toolConfiguration.CommandName);
+            Reporter.Output.WriteLine($"Created a shim {shimPath.TrimCurrentDirectory().Cyan()} to {targetExecutablePath.Cyan()}");
         }
         else
         {
@@ -192,7 +211,11 @@ public class LinkCommand : CommandBase
             if (Directory.Exists(packagePath)) Directory.Delete(packagePath, true);
             Directory.CreateDirectory(packagePath);
 
-            File.WriteAllText(Path.Combine(packagePath, PackagingCoreConstants.NupkgMetadataFileExtension), "{ \"version\": 2, \"contentHash\": null, \"source\": null }");
+            File.WriteAllText(
+                Path.Combine(packagePath, PackagingCoreConstants.NupkgMetadataFileExtension),
+                /* lang=json */
+                """{ "version": 2, "contentHash": null, "source": null }"""
+            );
             Extensions.CreateLink(Path.Combine(packagePath, id + PackagingCoreConstants.NuspecExtension), nuspecPath);
 
             foreach (var manifestFile in manifest.Files)

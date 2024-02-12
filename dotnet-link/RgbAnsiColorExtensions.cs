@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2022 js6pak
+
 using System.Drawing;
 using System.Runtime.InteropServices;
 
 namespace DotNetLink;
 
-public static partial class RgbAnsiColorExtensions
+internal static partial class RgbAnsiColorExtensions
 {
     [LibraryImport("kernel32")]
     [SuppressGCTransition]

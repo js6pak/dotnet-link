@@ -1,33 +1,50 @@
-﻿using System.CommandLine;
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2022 js6pak
+
+using System.CommandLine;
 using System.CommandLine.Completions;
-using DotNetLink;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Microsoft.DotNet.Cli;
 
-if (!SdkFinder.Initialize())
-{
-    Console.Error.WriteLine("Failed to find a compatible .NET SDK");
-    Console.Error.WriteLine($"dotnet-link requires {SdkFinder.TargetVersion}.x sdk to be installed");
-    return 1;
-}
+[assembly: DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+[assembly: DisableRuntimeMarshalling]
 
-return await InvokeAsync(args);
+namespace DotNetLink;
 
-static async Task<int> InvokeAsync(string[] args)
+internal static class Program
 {
-    if (RgbAnsiColorExtensions.EnableAnsi())
+    private static async Task<int> Main(string[] args)
     {
-        Environment.SetEnvironmentVariable("DOTNET_CLI_CONTEXT_ANSI_PASS_THRU", "true");
+        if (!SdkFinder.Initialize())
+        {
+            await Console.Error.WriteLineAsync("Failed to find a compatible .NET SDK");
+            await Console.Error.WriteLineAsync($"dotnet-link requires {SdkFinder.TargetVersion}.x sdk to be installed");
+            return 1;
+        }
+
+        return await InvokeAsync(args);
     }
 
-    // Based on https://github.com/dotnet/sdk/blob/v8.0.101/src/Cli/dotnet/Parser.cs#L158-L165
-    var cliConfiguration = new CliConfiguration(LinkCommandParser.GetCommand())
+    private static async Task<int> InvokeAsync(string[] args)
     {
-        EnableDefaultExceptionHandler = false,
-        EnableParseErrorReporting = true,
-        EnablePosixBundling = false,
-        Directives = { new DiagramDirective(), new SuggestDirective() },
-        ResponseFileTokenReplacer = Parser.TokenPerLine
-    };
+        if (RgbAnsiColorExtensions.EnableAnsi())
+            Environment.SetEnvironmentVariable("DOTNET_CLI_CONTEXT_ANSI_PASS_THRU", "true");
 
-    return await cliConfiguration.Parse(args).InvokeAsync();
+        // Based on https://github.com/dotnet/sdk/blob/v8.0.101/src/Cli/dotnet/Parser.cs#L158-L165
+        var cliConfiguration = new CliConfiguration(LinkCommandParser.Command)
+        {
+            EnableDefaultExceptionHandler = false,
+            EnableParseErrorReporting = true,
+            EnablePosixBundling = false,
+            Directives =
+            {
+                new DiagramDirective(),
+                new SuggestDirective(),
+            },
+            ResponseFileTokenReplacer = Parser.TokenPerLine,
+        };
+
+        return await cliConfiguration.Parse(args).InvokeAsync();
+    }
 }

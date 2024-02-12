@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2022 js6pak
+
 using System.CommandLine;
 using Microsoft.DotNet.Cli;
 using Microsoft.DotNet.Tools;
@@ -7,27 +10,24 @@ namespace DotNetLink;
 
 internal static class LinkCommandParser
 {
-    public static readonly CliArgument<IEnumerable<string>?> SlnOrProjectArgument = new(CommonLocalizableStrings.SolutionOrProjectArgumentName)
+    public static CliArgument<IEnumerable<string>?> SlnOrProjectArgument { get; } = new(CommonLocalizableStrings.SolutionOrProjectArgumentName)
     {
         Description = CommonLocalizableStrings.SolutionOrProjectArgumentDescription,
         Arity = ArgumentArity.ZeroOrMore,
     };
 
-    public static readonly CliOption<bool> NoPackOption = new("--no-pack") { Description = "Do not build and pack the project before linking" };
-
-    public static readonly CliOption<string> ConfigurationOption = CommonOptions.ConfigurationOption(PackLocalizableStrings.ConfigurationOptionDescription);
-
-    private static readonly CliCommand Command = ConstructCommand();
-
-    public static CliCommand GetCommand()
+    public static CliOption<bool> NoPackOption { get; } = new("--no-pack")
     {
-        return Command;
-    }
+        Description = "Do not build and pack the project before linking",
+        Aliases = { "--no-build" },
+    };
 
-    private static CliCommand ConstructCommand()
+    public static CliOption<string> ConfigurationOption { get; } = CommonOptions.ConfigurationOption(PackLocalizableStrings.ConfigurationOptionDescription);
+
+    public static CliCommand Command { get; } = ConstructCommand();
+
+    private static CliRootCommand ConstructCommand()
     {
-        NoPackOption.Aliases.Add("--no-build");
-
         var command = new CliRootCommand("Symlinks a nuget package for easier development")
         {
             SlnOrProjectArgument,

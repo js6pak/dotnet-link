@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2022 js6pak
+
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Microsoft.DotNet.Cli.Utils;
@@ -13,7 +16,7 @@ internal static partial class Extensions
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool CreateHardLinkW(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
 
-    private const int ErrorPrivilegeNotHeld = unchecked((int)0x80070522);
+    private const int ErrorPrivilegeNotHeld = unchecked((int) 0x80070522);
 
     public static void CreateLink(string path, string pathToTarget, bool symbolic = true)
     {
@@ -29,7 +32,12 @@ internal static partial class Extensions
                 }
                 catch (IOException e) when (e.HResult == ErrorPrivilegeNotHeld)
                 {
-                    Reporter.Error.WriteLine("You don't have privileges to create a symlink\nMake sure to enable Developer Mode in Windows \"For developers\" settings".Yellow());
+                    Reporter.Error.WriteLine(
+                        """
+                        You don't have privileges to create a symlink
+                        Make sure to enable Developer Mode in Windows "For developers" settings
+                        """.Yellow()
+                    );
                     throw;
                 }
             }
@@ -50,7 +58,11 @@ internal static partial class Extensions
             }
         }
 
-        Reporter.Output.WriteLine($"Linked {path.TrimCurrentDirectory().Cyan()} to {pathToTarget.TrimCurrentDirectory().Cyan()} ({(symbolic ? "symbolic" : "hard")})");
+        Reporter.Output.WriteLine(
+            $"Linked {path.TrimCurrentDirectory().Cyan()} " +
+            $"to {pathToTarget.TrimCurrentDirectory().Cyan()} " +
+            $"({(symbolic ? "symbolic" : "hard")})"
+        );
     }
 
     public static string TrimStart(this string text, string value)

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2022 js6pak
+
 using System.Reflection;
 using System.Runtime.InteropServices;
 

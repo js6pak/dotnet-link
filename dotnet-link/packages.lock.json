@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net8.0": {
+      "BepInEx.AssemblyPublicizer.MSBuild": {
+        "type": "Direct",
+        "requested": "[0.4.2, )",
+        "resolved": "0.4.2",
+        "contentHash": "AwGR6zOQxhWPWmcMdmhCaawC2qYdYHttkGmlXxyvhB1EIUAtuILEle8kKSkzElnbFGZjvw6iabpFi+AYUG4IuA=="
+      },
+      "PolySharp": {
+        "type": "Direct",
+        "requested": "[1.14.1, )",
+        "resolved": "1.14.1",
+        "contentHash": "mOOmFYwad3MIOL14VCjj02LljyF1GNw1wP0YVlxtcPvqdxjGGMNdNJJxHptlry3MOd8b40Flm8RPOM8JOlN2sQ=="
+      },
+      "StyleCop.Analyzers.Unstable": {
+        "type": "Direct",
+        "requested": "[1.2.0.556, )",
+        "resolved": "1.2.0.556",
+        "contentHash": "zvn9Mqs/ox/83cpYPignI8hJEM2A93s2HkHs8HYMOAQW0PkampyoErAiIyKxgTLqbbad29HX/shv/6LGSjPJNQ=="
+      }
+    }
+  }
+}
