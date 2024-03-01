@@ -132,14 +132,28 @@ internal sealed class LinkCommand : CommandBase
             }
 
             Reporter.Output.WriteLine($"Linking {projectPath.Cyan()}");
-            Link(project);
+            Link(project, _parseResult.GetValue(LinkCommandParser.CopyOption));
         }
 
         return 0;
     }
 
-    private static void Link(Project project)
+    private static void Link(Project project, bool copy)
     {
+        void CreateLink(string path, string pathToTarget, bool symbolic = true)
+        {
+            if (copy)
+            {
+                if (File.Exists(path)) File.Delete(path);
+                File.Copy(pathToTarget, path);
+                Reporter.Output.WriteLine($"Copied {path.TrimCurrentDirectory().Cyan()} to {pathToTarget.TrimCurrentDirectory().Cyan()})");
+            }
+            else
+            {
+                Extensions.CreateLink(path, pathToTarget, symbolic);
+            }
+        }
+
         var intermediateOutputPath = Path.Combine(project.DirectoryPath, project.GetPropertyValue("BaseIntermediateOutputPath")!).Replace('\\', '/');
 
         var nuspecOutputPath = Path.Combine(project.DirectoryPath, project.GetPropertyValue("NuspecOutputPath")!).Replace('\\', '/');
@@ -216,13 +230,13 @@ internal sealed class LinkCommand : CommandBase
                 /* lang=json */
                 """{ "version": 2, "contentHash": null, "source": null }"""
             );
-            Extensions.CreateLink(Path.Combine(packagePath, id + PackagingCoreConstants.NuspecExtension), nuspecPath);
+            CreateLink(Path.Combine(packagePath, id + PackagingCoreConstants.NuspecExtension), nuspecPath);
 
             foreach (var manifestFile in manifest.Files)
             {
                 var source = Path.Combine(packagePath, manifestFile.Target);
                 Directory.CreateDirectory(Path.GetDirectoryName(source)!);
-                Extensions.CreateLink(source, manifestFile.Source, !manifestFile.Target.StartsWith("lib"));
+                CreateLink(source, manifestFile.Source, !manifestFile.Target.StartsWith("lib"));
             }
 
             var tagName = Color.FromArgb(0xE8, 0xBF, 0x6A);

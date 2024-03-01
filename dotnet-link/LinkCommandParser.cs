@@ -22,6 +22,8 @@ internal static class LinkCommandParser
         Aliases = { "--no-build" },
     };
 
+    public static CliOption<bool> CopyOption { get; } = new("--copy") { Description = "Copy instead linking" };
+
     public static CliOption<string> ConfigurationOption { get; } = CommonOptions.ConfigurationOption(PackLocalizableStrings.ConfigurationOptionDescription);
 
     public static CliCommand Command { get; } = ConstructCommand();
@@ -32,6 +34,7 @@ internal static class LinkCommandParser
         {
             SlnOrProjectArgument,
             NoPackOption,
+            CopyOption,
             CommonOptions.InteractiveMsBuildForwardOption,
             CommonOptions.VerbosityOption,
             CommonOptions.VersionSuffixOption,
