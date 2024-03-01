@@ -6,7 +6,9 @@ using System.Drawing;
 using System.Text;
 using Microsoft.Build.CommandLine;
 using Microsoft.Build.Construction;
-using Microsoft.Build.Evaluation;
+using Microsoft.Build.Execution;
+using Microsoft.Build.Framework;
+using Microsoft.Build.Logging;
 using Microsoft.Build.Shared;
 using Microsoft.DotNet.Cli;
 using Microsoft.DotNet.Cli.Utils;
@@ -112,11 +114,11 @@ internal sealed class LinkCommand : CommandBase
 
         foreach (var projectPath in allProjects)
         {
-            Project project;
+            ProjectInstance project;
 
             try
             {
-                project = new Project(projectPath, globalProperties, null);
+                project = new ProjectInstance(projectPath, globalProperties, null);
             }
             catch (Exception)
             {
@@ -138,7 +140,7 @@ internal sealed class LinkCommand : CommandBase
         return 0;
     }
 
-    private static void Link(Project project, bool copy)
+    private static void Link(ProjectInstance project, bool copy)
     {
         void CreateLink(string path, string pathToTarget, bool symbolic = true)
         {
@@ -154,9 +156,22 @@ internal sealed class LinkCommand : CommandBase
             }
         }
 
-        var intermediateOutputPath = Path.Combine(project.DirectoryPath, project.GetPropertyValue("BaseIntermediateOutputPath")!).Replace('\\', '/');
+        var getPackageVersionDependsOn = project.GetPropertyValue("GetPackageVersionDependsOn")
+            .Split(";", StringSplitOptions.RemoveEmptyEntries);
 
-        var nuspecOutputPath = Path.Combine(project.DirectoryPath, project.GetPropertyValue("NuspecOutputPath")!).Replace('\\', '/');
+        if (getPackageVersionDependsOn.Length != 0)
+        {
+            if (!project.Build(getPackageVersionDependsOn, new[] { new ConsoleLogger(LoggerVerbosity.Minimal) }))
+            {
+                throw new InvalidOperationException("Failed to run GetPackageVersionDependsOn");
+            }
+        }
+
+        project.Build("GetAssemblyVersion", null);
+
+        var intermediateOutputPath = Path.Combine(project.Directory, project.GetPropertyValue("BaseIntermediateOutputPath")!).Replace('\\', '/');
+
+        var nuspecOutputPath = Path.Combine(project.Directory, project.GetPropertyValue("NuspecOutputPath")!).Replace('\\', '/');
 
         var packageId = project.GetPropertyValue("PackageId")!;
         var packageVersion = NuGetVersion.Parse(project.GetPropertyValue("PackageVersion")!);
