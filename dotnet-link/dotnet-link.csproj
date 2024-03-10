@@ -38,4 +38,9 @@
             <ReferenceCopyLocalPaths Remove="@(ReferenceSatellitePaths)" />
         </ItemGroup>
     </Target>
+
+    <Target Name="InstallTool" DependsOnTargets="Build;Pack">
+        <Exec Command="dotnet tool uninstall --global $(PackageId)" ContinueOnError="true" IgnoreExitCode="" />
+        <Exec Command="dotnet tool install --global $(PackageId) --prerelease --add-source $(PackageOutputPath)" />
+    </Target>
 </Project>
