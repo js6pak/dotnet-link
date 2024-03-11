@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2022 js6pak
 
 using System.Reflection;
-using System.Runtime.InteropServices;
 
 namespace DotNetLink;
 
@@ -20,14 +19,15 @@ internal static class SdkFinder
 
     public static bool Initialize()
     {
-        var dotnetExeDirectory = Microsoft.DotNet.NativeWrapper.EnvironmentProvider.GetDotnetExeDirectory();
-        if (dotnetExeDirectory == null)
+        var dotnetExe = GetDotnetExe();
+        if (dotnetExe == null)
         {
             return false;
         }
 
-        var exeSuffix = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : string.Empty;
-        Environment.SetEnvironmentVariable("DOTNET_HOST_PATH", Path.Combine(dotnetExeDirectory, "dotnet" + exeSuffix));
+        Environment.SetEnvironmentVariable("DOTNET_HOST_PATH", dotnetExe);
+
+        var dotnetExeDirectory = Path.GetDirectoryName(dotnetExe)!;
 
         SdkDirectory = Directory.GetDirectories(Path.Combine(dotnetExeDirectory, "sdk")).LastOrDefault(p => Path.GetFileName(p).StartsWith($"{TargetVersion}."));
         if (SdkDirectory == null)
@@ -48,5 +48,47 @@ internal static class SdkFinder
         };
 
         return true;
+    }
+
+    private static string? GetDotnetExe()
+    {
+        var environmentOverride = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
+        if (!string.IsNullOrEmpty(environmentOverride))
+        {
+            return environmentOverride;
+        }
+
+        var processPath = Environment.ProcessPath;
+        if (!string.IsNullOrEmpty(processPath) && Path.GetFileNameWithoutExtension(processPath).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+        {
+            return processPath;
+        }
+
+        var dotnetExeFromPath = GetCommandPath("dotnet");
+        if (!string.IsNullOrWhiteSpace(dotnetExeFromPath))
+        {
+            return File.ResolveLinkTarget(dotnetExeFromPath, true)?.FullName ?? dotnetExeFromPath;
+        }
+
+        return null;
+    }
+
+    private static readonly string s_exeSuffix = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
+
+    private static string? GetCommandPath(string commandName)
+    {
+        var commandNameWithExtension = commandName + s_exeSuffix;
+
+        var searchPaths = Environment.GetEnvironmentVariable("PATH")!
+            .Split(Path.PathSeparator, options: StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => p.Trim('"'))
+            .Where(p => p.IndexOfAny(Path.GetInvalidPathChars()) == -1)
+            .ToList();
+
+        var commandPath = searchPaths
+            .Select(p => Path.Combine(p, commandNameWithExtension))
+            .FirstOrDefault(File.Exists);
+
+        return commandPath;
     }
 }
