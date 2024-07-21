@@ -173,7 +173,12 @@ internal sealed class LinkCommand : CommandBase
 
         var nuspecOutputPath = Path.Combine(project.Directory, project.GetPropertyValue("NuspecOutputPath")!).Replace('\\', '/');
 
-        var packageId = project.GetPropertyValue("PackageId")!;
+        var packageId = project.GetPropertyValue("NuspecPackageId");
+        if (string.IsNullOrEmpty(packageId))
+        {
+            packageId = project.GetPropertyValue("PackageId");
+        }
+
         var packageVersion = NuGetVersion.Parse(project.GetPropertyValue("PackageVersion")!);
 
         var nuspecPath = Path.Combine(nuspecOutputPath, PackCommandRunner.GetOutputFileName(packageId, packageVersion, false, false, default));
