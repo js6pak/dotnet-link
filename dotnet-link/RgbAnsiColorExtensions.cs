@@ -31,7 +31,7 @@ internal static partial class RgbAnsiColorExtensions
             return false;
         }
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        if (OperatingSystem.IsWindows())
         {
             try
             {

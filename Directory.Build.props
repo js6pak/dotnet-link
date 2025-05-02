@@ -1,5 +1,5 @@
 <Project>
-    <Sdk Name="OpinionPak.Sdk" Version="0.1.0-alpha.1" />
+    <Sdk Name="OpinionPak.Sdk" Version="0.1.0-alpha.4" />
 
     <PropertyGroup>
         <UseArtifactsOutput>true</UseArtifactsOutput>

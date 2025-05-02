@@ -24,7 +24,7 @@ internal static partial class Extensions
 
         if (symbolic)
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (OperatingSystem.IsWindows())
             {
                 try
                 {
@@ -48,7 +48,7 @@ internal static partial class Extensions
         }
         else
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (OperatingSystem.IsWindows())
             {
                 if (!CreateHardLinkW(path, pathToTarget, IntPtr.Zero)) throw new Win32Exception();
             }

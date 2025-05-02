@@ -5,7 +5,7 @@
         <RootNamespace>DotNetLink</RootNamespace>
         <InvariantGlobalization>true</InvariantGlobalization>
 
-        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <IsPackable>true</IsPackable>
         <PackAsTool>true</PackAsTool>
         <ToolCommandName>dotnet-link</ToolCommandName>
 
