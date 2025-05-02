@@ -10,7 +10,9 @@ internal static class SdkFinder
     public static string? SdkDirectory { get; private set; }
 
     public const string TargetVersion =
-#if NET8_0
+#if NET9_0
+            "9.0"
+#elif NET8_0
             "8.0"
 #elif NET7_0
             "7.0"

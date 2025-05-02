@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2022 js6pak
 
 using System.CommandLine;
-using System.CommandLine.Completions;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Microsoft.DotNet.Cli;
@@ -31,17 +30,11 @@ internal static class Program
         if (RgbAnsiColorExtensions.EnableAnsi())
             Environment.SetEnvironmentVariable("DOTNET_CLI_CONTEXT_ANSI_PASS_THRU", "true");
 
-        // Based on https://github.com/dotnet/sdk/blob/v8.0.101/src/Cli/dotnet/Parser.cs#L158-L165
+        // Based on https://github.com/dotnet/sdk/blob/v9.0.102/src/Cli/dotnet/Parser.cs#L166-L171
         var cliConfiguration = new CliConfiguration(LinkCommandParser.Command)
         {
             EnableDefaultExceptionHandler = false,
-            EnableParseErrorReporting = true,
             EnablePosixBundling = false,
-            Directives =
-            {
-                new DiagramDirective(),
-                new SuggestDirective(),
-            },
             ResponseFileTokenReplacer = Parser.TokenPerLine,
         };
 
