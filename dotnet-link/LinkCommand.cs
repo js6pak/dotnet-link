@@ -74,6 +74,8 @@ internal sealed class LinkCommand : CommandBase
         if (_slnOrProjectArgument != null) msbuildArgs.AddRange(_slnOrProjectArgument);
         msbuildArgs.Add("-target:Restore;Build;Pack");
 
+        msbuildArgs.Add("-p:EmitNuspec=true");
+
         Dictionary<string, string> globalProperties;
         string projectFile;
 
@@ -156,12 +158,19 @@ internal sealed class LinkCommand : CommandBase
             }
         }
 
+        var isNuGetized = project.GetPropertyValue("IsNuGetized").Equals("true", StringComparison.OrdinalIgnoreCase);
+
+        if (isNuGetized)
+        {
+            Reporter.Output.WriteLine("[yellow]The project is using nugetizer[/]");
+        }
+
         var getPackageVersionDependsOn = project.GetPropertyValue("GetPackageVersionDependsOn")
-            .Split(";", StringSplitOptions.RemoveEmptyEntries);
+            .Split(";", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         if (getPackageVersionDependsOn.Length != 0)
         {
-            if (!project.Build(getPackageVersionDependsOn, new[] { new ConsoleLogger(LoggerVerbosity.Minimal) }))
+            if (!project.Build(getPackageVersionDependsOn, [new ConsoleLogger(LoggerVerbosity.Minimal)]))
             {
                 throw new InvalidOperationException("Failed to run GetPackageVersionDependsOn");
             }
@@ -171,17 +180,26 @@ internal sealed class LinkCommand : CommandBase
 
         var intermediateOutputPath = Path.Combine(project.Directory, project.GetPropertyValue("BaseIntermediateOutputPath")!).Replace('\\', '/');
 
-        var nuspecOutputPath = Path.Combine(project.Directory, project.GetPropertyValue("NuspecOutputPath")!).Replace('\\', '/');
+        string nuspecPath;
 
-        var packageId = project.GetPropertyValue("NuspecPackageId");
-        if (string.IsNullOrEmpty(packageId))
+        if (!isNuGetized)
         {
-            packageId = project.GetPropertyValue("PackageId");
+            var nuspecOutputPath = Path.Combine(project.Directory, project.GetPropertyValue("NuspecOutputPath")!).Replace('\\', '/');
+
+            var packageId = project.GetPropertyValue("NuspecPackageId");
+            if (string.IsNullOrEmpty(packageId))
+            {
+                packageId = project.GetPropertyValue("PackageId");
+            }
+
+            var packageVersion = NuGetVersion.Parse(project.GetPropertyValue("PackageVersion")!);
+
+            nuspecPath = Path.Combine(nuspecOutputPath, PackCommandRunner.GetOutputFileName(packageId, packageVersion, false, false, default));
         }
-
-        var packageVersion = NuGetVersion.Parse(project.GetPropertyValue("PackageVersion")!);
-
-        var nuspecPath = Path.Combine(nuspecOutputPath, PackCommandRunner.GetOutputFileName(packageId, packageVersion, false, false, default));
+        else
+        {
+            nuspecPath = project.GetPropertyValue("NuspecFile")!;
+        }
 
         if (!File.Exists(nuspecPath))
         {
