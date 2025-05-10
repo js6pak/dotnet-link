@@ -2,29 +2,43 @@
 // SPDX-FileCopyrightText: 2022 js6pak
 
 using System.CommandLine;
-using Microsoft.DotNet.Cli;
-using Microsoft.DotNet.Tools;
-using PackLocalizableStrings = Microsoft.DotNet.Tools.Pack.LocalizableStrings;
+using System.CommandLine.Parsing;
+using System.Runtime.CompilerServices;
 
 namespace DotNetLink;
 
 internal static class LinkCommandParser
 {
-    public static CliArgument<IEnumerable<string>?> SlnOrProjectArgument { get; } = new(CommonLocalizableStrings.SolutionOrProjectArgumentName)
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_Symbol")]
+    private static extern CliSymbol GetSymbol(CliToken token);
+
+    public static CliArgument<IEnumerable<string>> SlnOrProjectArgument { get; } = new("PROJECT | SOLUTION")
     {
-        Description = CommonLocalizableStrings.SolutionOrProjectArgumentDescription,
+        Description = "The project or solution file to operate on. If a file is not specified, the command will search the current directory for one.",
         Arity = ArgumentArity.ZeroOrMore,
+        CustomParser = argumentResult =>
+        {
+            if (argumentResult.Tokens.Count > 1)
+            {
+                var lastIndexBeforeDoubleDash = argumentResult.Tokens.ToList().FindLastIndex(t => GetSymbol(t) == SlnOrProjectArgument) + 1;
+                argumentResult.OnlyTake(lastIndexBeforeDoubleDash);
+                return argumentResult.Tokens.Take(lastIndexBeforeDoubleDash).Select(t => t.Value);
+            }
+
+            argumentResult.OnlyTake(0);
+            return [];
+        },
     };
 
-    public static CliOption<bool> NoPackOption { get; } = new("--no-pack")
+    public static CliOption<bool> NoBuildOption { get; } = new("--no-build")
     {
-        Description = "Do not build and pack the project before linking",
-        Aliases = { "--no-build" },
+        Description = "Do not build the project before linking",
     };
 
-    public static CliOption<bool> CopyOption { get; } = new("--copy") { Description = "Copy instead linking" };
-
-    public static CliOption<string> ConfigurationOption { get; } = CommonOptions.ConfigurationOption(PackLocalizableStrings.ConfigurationOptionDescription);
+    public static CliOption<bool> CopyOption { get; } = new("--copy")
+    {
+        Description = "Copy instead of linking",
+    };
 
     public static CliCommand Command { get; } = ConstructCommand();
 
@@ -33,17 +47,13 @@ internal static class LinkCommandParser
         var command = new CliRootCommand("Symlinks a nuget package for easier development")
         {
             SlnOrProjectArgument,
-            NoPackOption,
+            NoBuildOption,
             CopyOption,
-            CommonOptions.InteractiveMsBuildForwardOption,
-            CommonOptions.VerbosityOption,
-            CommonOptions.VersionSuffixOption,
-            ConfigurationOption,
         };
 
-        RestoreCommandParser.AddImplicitRestoreOptions(command, includeRuntimeOption: true, includeNoDependenciesOption: true);
+        command.TreatUnmatchedTokensAsErrors = false;
 
-        command.SetAction(LinkCommand.Run);
+        command.SetAction(LinkCommand.RunAsync);
 
         return command;
     }

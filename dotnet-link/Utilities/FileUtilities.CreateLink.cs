@@ -3,11 +3,10 @@
 
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-using Microsoft.DotNet.Cli.Utils;
 
-namespace DotNetLink;
+namespace DotNetLink.Utilities;
 
-internal static partial class Extensions
+internal static partial class FileUtilities
 {
     [LibraryImport("libSystem.Native", EntryPoint = "SystemNative_Link", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
     private static partial int Link(string source, string link);
@@ -32,7 +31,7 @@ internal static partial class Extensions
                 }
                 catch (IOException e) when (e.HResult == ErrorPrivilegeNotHeld)
                 {
-                    Reporter.Error.WriteLine(
+                    Console.WriteLine(
                         """
                         You don't have privileges to create a symlink
                         Make sure to enable Developer Mode in Windows "For developers" settings
@@ -58,20 +57,10 @@ internal static partial class Extensions
             }
         }
 
-        Reporter.Output.WriteLine(
+        Console.WriteLine(
             $"Linked {path.TrimCurrentDirectory().Cyan()} " +
             $"to {pathToTarget.TrimCurrentDirectory().Cyan()} " +
             $"({(symbolic ? "symbolic" : "hard")})"
         );
-    }
-
-    public static string TrimStart(this string text, string value)
-    {
-        return text.StartsWith(value) ? text[(value.Length + 1)..] : text;
-    }
-
-    public static string TrimCurrentDirectory(this string text)
-    {
-        return text.TrimStart(Directory.GetCurrentDirectory());
     }
 }

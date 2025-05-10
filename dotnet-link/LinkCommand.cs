@@ -4,19 +4,7 @@
 using System.CommandLine;
 using System.Drawing;
 using System.Text;
-using Microsoft.Build.CommandLine;
-using Microsoft.Build.Construction;
-using Microsoft.Build.Execution;
-using Microsoft.Build.Framework;
-using Microsoft.Build.Logging;
-using Microsoft.Build.Shared;
-using Microsoft.DotNet.Cli;
-using Microsoft.DotNet.Cli.Utils;
-using Microsoft.DotNet.Configurer;
-using Microsoft.DotNet.ShellShim;
-using Microsoft.DotNet.ToolPackage;
-using Microsoft.Extensions.EnvironmentAbstractions;
-using NuGet.Commands;
+using DotNetLink.Utilities;
 using NuGet.Common;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -24,192 +12,132 @@ using NuGet.Versioning;
 
 namespace DotNetLink;
 
-internal sealed class LinkCommand : CommandBase
+internal sealed class LinkCommand
 {
-    private readonly IEnumerable<string>? _slnOrProjectArgument;
+    private readonly IEnumerable<string> _slnOrProjectArgument;
+    private readonly IEnumerable<string> _additionalArguments;
+    private readonly bool _noBuild;
+    private readonly bool _copy;
 
-    private LinkCommand(ParseResult parseResult) : base(parseResult)
+    private LinkCommand(ParseResult parseResult)
     {
-        _slnOrProjectArgument = parseResult.GetValue(LinkCommandParser.SlnOrProjectArgument);
+        _slnOrProjectArgument = parseResult.GetValue(LinkCommandParser.SlnOrProjectArgument) ?? [];
+        _additionalArguments = parseResult.UnmatchedTokens;
+        _noBuild = parseResult.GetValue(LinkCommandParser.NoBuildOption);
+        _copy = parseResult.GetValue(LinkCommandParser.CopyOption);
     }
 
-    private static void ParseMSBuildArgs(IEnumerable<string> msbuildArgs, out Dictionary<string, string> globalProperties, out string projectFile)
+    private async Task<int> ExecuteAsync(CancellationToken cancellationToken)
     {
-        var commandLine = msbuildArgs.Prepend(BuildEnvironmentHelper.Instance.CurrentMSBuildExePath).ToArray();
-        MSBuildApp.GatherAllSwitches(
-            commandLine,
-            out var switchesFromAutoResponseFile,
-            out var switchesNotFromAutoResponseFile,
-            out var fullCommandLine
-        );
+        var slnOrProjects = _slnOrProjectArgument.ToList();
 
-        var commandLineSwitches = MSBuildApp.CombineSwitchesRespectingPriority(
-            switchesFromAutoResponseFile,
-            switchesNotFromAutoResponseFile,
-            fullCommandLine
-        );
-
-        globalProperties = MSBuildApp.ProcessPropertySwitch(commandLineSwitches[CommandLineSwitches.ParameterizedSwitch.Property]);
-
-        projectFile = MSBuildApp.ProcessProjectSwitch(
-            commandLineSwitches[CommandLineSwitches.ParameterizedSwitch.Project],
-            commandLineSwitches[CommandLineSwitches.ParameterizedSwitch.IgnoreProjectExtensions],
-            Directory.GetFiles
-        );
-    }
-
-    private static int RunMSBuild(IEnumerable<string> args)
-    {
-        // https://github.com/dotnet/sdk/blob/v7.0.203/src/Cli/Microsoft.DotNet.Cli.Utils/MSBuildForwardingAppWithoutLogging.cs#L47-L48
-        var requiredParameters = new[] { "-maxcpucount", "-verbosity:m" };
-
-        return MSBuildApp.Main(requiredParameters.Concat(args).ToArray());
-    }
-
-    public override int Execute()
-    {
-        var msbuildArgs = new List<string>();
-
-        msbuildArgs.AddRange(_parseResult.OptionValuesToBeForwarded(LinkCommandParser.Command));
-        if (_slnOrProjectArgument != null) msbuildArgs.AddRange(_slnOrProjectArgument);
-        msbuildArgs.Add("-target:Restore;Build;Pack");
-
-        msbuildArgs.Add("-p:EmitNuspec=true");
-
-        Dictionary<string, string> globalProperties;
-        string projectFile;
-
-        try
+        if (slnOrProjects.Count == 0)
         {
-            ParseMSBuildArgs(msbuildArgs, out globalProperties, out projectFile);
-        }
-        catch (InitializationException e)
-        {
-            Reporter.Error.WriteLine(e.Message.Red());
-            return 1;
+            slnOrProjects.Add(Directory.GetCurrentDirectory());
         }
 
-        var noPack = _parseResult.GetValue(LinkCommandParser.NoPackOption);
-        if (!noPack)
-        {
-            Reporter.Output.WriteLine("Building and packing first...");
+        var projects = new HashSet<string>();
 
-            var exitCode = RunMSBuild(msbuildArgs);
+        foreach (var slnOrProject in slnOrProjects.Select(FileUtilities.GetProjectOrSolution))
+        {
+            if (FileUtilities.IsSolutionFilename(slnOrProject))
+            {
+                projects.AddRange(await DotnetSlnCommand.ListAsync(slnOrProject));
+            }
+            else
+            {
+                projects.Add(slnOrProject);
+            }
+        }
+
+        foreach (var slnOrProject in projects)
+        {
+            var exitCode = await LinkAsync(slnOrProject, cancellationToken);
             if (exitCode != 0)
             {
                 return exitCode;
             }
         }
 
-        var allProjects = new List<string>();
-
-        if (FileUtilities.IsSolutionFilename(projectFile))
-        {
-            var solutionFile = SolutionFile.Parse(Path.GetFullPath(projectFile));
-            var projects = solutionFile.ProjectsInOrder.Where(p => p.ProjectType != SolutionProjectType.SolutionFolder);
-            allProjects.AddRange(projects.Select(p => p.AbsolutePath));
-        }
-        else
-        {
-            allProjects.Add(projectFile);
-        }
-
-        foreach (var projectPath in allProjects)
-        {
-            ProjectInstance project;
-
-            try
-            {
-                project = new ProjectInstance(projectPath, globalProperties, null);
-            }
-            catch (Exception)
-            {
-                Reporter.Error.WriteLine($"Failed to load {projectPath.Cyan()}".Red());
-                continue;
-            }
-
-            var isPackable = project.GetPropertyValue("IsPackable");
-            if (isPackable is not "true")
-            {
-                Reporter.Output.WriteLine($"Skipping {projectPath.Cyan()} because it's not packable");
-                continue;
-            }
-
-            Reporter.Output.WriteLine($"Linking {projectPath.Cyan()}");
-            Link(project, _parseResult.GetValue(LinkCommandParser.CopyOption));
-        }
-
         return 0;
     }
 
-    private static void Link(ProjectInstance project, bool copy)
+    private async Task<int> LinkAsync(string projectPath, CancellationToken cancellationToken)
     {
-        void CreateLink(string path, string pathToTarget, bool symbolic = true)
+        var isPackable = await DotnetBuildCommand.GetPropertyAsync(projectPath, "IsPackable", additionalArguments: _additionalArguments);
+        if (!string.Equals(isPackable, "true", StringComparison.OrdinalIgnoreCase))
         {
-            if (copy)
-            {
-                if (File.Exists(path)) File.Delete(path);
-                File.Copy(pathToTarget, path);
-                Reporter.Output.WriteLine($"Copied {path.TrimCurrentDirectory().Cyan()} to {pathToTarget.TrimCurrentDirectory().Cyan()})");
-            }
-            else
-            {
-                Extensions.CreateLink(path, pathToTarget, symbolic);
-            }
+            Console.WriteLine($"Skipping {projectPath.TrimCurrentDirectory().Cyan()} because it's not packable");
+            return 0;
         }
 
-        var isNuGetized = project.GetPropertyValue("IsNuGetized").Equals("true", StringComparison.OrdinalIgnoreCase);
+        var projectDirectory = Path.GetDirectoryName(projectPath)!;
+
+        Console.WriteLine($"Linking {projectPath.TrimCurrentDirectory().Cyan()}");
+
+        var result = await DotnetBuildCommand.ExecuteAsync(
+            projectPath,
+            restore: !_noBuild,
+            targets: _noBuild ? ["GenerateNuspec"] : ["Build", "Pack"],
+            properties: new Dictionary<string, string>
+            {
+                // Needed for nugetizer
+                ["EmitNuspec"] = "true",
+            },
+            getProperty:
+            [
+                "IsNuGetized",
+                "NuspecOutputPath",
+                "NuspecPackageId",
+                "PackageId",
+                "PackageVersion",
+                "NuspecFile",
+                "DevelopmentDependency",
+                "ToolCommandName",
+                "RunCommand",
+            ],
+            additionalArguments: _additionalArguments
+        );
+
+        var properties = result!.Properties!;
+
+        var isNuGetized = properties["IsNuGetized"].Equals("true", StringComparison.OrdinalIgnoreCase);
 
         if (isNuGetized)
         {
-            Reporter.Output.WriteLine("[yellow]The project is using nugetizer[/]");
+            Console.WriteLine("The project is using nugetizer".Yellow());
         }
-
-        var getPackageVersionDependsOn = project.GetPropertyValue("GetPackageVersionDependsOn")
-            .Split(";", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        if (getPackageVersionDependsOn.Length != 0)
-        {
-            if (!project.Build(getPackageVersionDependsOn, [new ConsoleLogger(LoggerVerbosity.Minimal)]))
-            {
-                throw new InvalidOperationException("Failed to run GetPackageVersionDependsOn");
-            }
-        }
-
-        project.Build("GetAssemblyVersion", null);
-
-        var intermediateOutputPath = Path.Combine(project.Directory, project.GetPropertyValue("BaseIntermediateOutputPath")!).Replace('\\', '/');
 
         string nuspecPath;
 
         if (!isNuGetized)
         {
-            var nuspecOutputPath = Path.Combine(project.Directory, project.GetPropertyValue("NuspecOutputPath")!).Replace('\\', '/');
+            var nuspecOutputPath = Path.Combine(projectDirectory, properties["NuspecOutputPath"]).Replace('\\', '/');
 
-            var packageId = project.GetPropertyValue("NuspecPackageId");
+            var packageId = properties["NuspecPackageId"];
             if (string.IsNullOrEmpty(packageId))
             {
-                packageId = project.GetPropertyValue("PackageId");
+                packageId = properties["PackageId"];
             }
 
-            var packageVersion = NuGetVersion.Parse(project.GetPropertyValue("PackageVersion")!);
+            var packageVersion = NuGetVersion.Parse(properties["PackageVersion"]);
 
-            nuspecPath = Path.Combine(nuspecOutputPath, PackCommandRunner.GetOutputFileName(packageId, packageVersion, false, false, default));
+            nuspecPath = Path.Combine(nuspecOutputPath, $"{packageId}.{packageVersion.ToNormalizedString()}.nuspec");
         }
         else
         {
-            nuspecPath = project.GetPropertyValue("NuspecFile")!;
+            nuspecPath = properties["NuspecFile"];
         }
 
         if (!File.Exists(nuspecPath))
         {
-            Reporter.Error.WriteLine($"{nuspecPath.TrimCurrentDirectory().Cyan()} doesn't exist".Red());
-            return;
+            Console.WriteLine($"{nuspecPath.TrimCurrentDirectory().Cyan()} doesn't exist".Red());
+            return 1;
         }
 
-        Reporter.Output.WriteLine($"Linking {nuspecPath.TrimCurrentDirectory().Cyan()}");
+        Console.WriteLine($"Linking {nuspecPath.TrimCurrentDirectory().Cyan()}");
 
-        using var fileStream = File.OpenRead(nuspecPath);
+        await using var fileStream = File.OpenRead(nuspecPath);
         var manifest = Manifest.ReadFrom(fileStream, true);
 
         var isTool = false;
@@ -235,25 +163,20 @@ internal sealed class LinkCommand : CommandBase
 
         if (isTool)
         {
-            var packagePath = Path.Combine(CliFolderPathCalculator.ToolsPackagePath, id);
+            var dotnetHomePath = GetDotnetHomePath() ?? throw new InvalidOperationException("The user's home directory could not be determined.");
+            var toolsShimPath = Path.Combine(dotnetHomePath, ".dotnet", "tools");
+
+            var packagePath = Path.Combine(toolsShimPath, ".store", id);
             if (Directory.Exists(packagePath))
             {
                 Directory.Delete(packagePath);
             }
 
-            var toolSettingsPath = Path.Combine(intermediateOutputPath, ToolPackageInstance.ToolSettingsFileName);
-            var toolConfiguration = ToolConfigurationDeserializer.Deserialize(toolSettingsPath);
-            var toolCommandName = new ToolCommandName(toolConfiguration.CommandName);
+            var toolCommandName = properties["ToolCommandName"];
+            var targetExecutablePath = properties["RunCommand"]; // TODO figure out if there is a better way to get apphost path
 
-            var targetExecutablePath = manifest.Files.Single(f => f.Target.EndsWith(toolConfiguration.ToolAssemblyEntryPoint)).Source!;
-
-            var repo = ShellShimRepositoryFactory.CreateShellShimRepository(Path.Combine(SdkFinder.SdkDirectory!, "AppHostTemplate"));
-
-            repo.RemoveShim(toolCommandName);
-            repo.CreateShim(new FilePath(targetExecutablePath), toolCommandName);
-
-            var shimPath = Path.Combine(CliFolderPathCalculator.ToolsShimPath, toolConfiguration.CommandName);
-            Reporter.Output.WriteLine($"Created a shim {shimPath.TrimCurrentDirectory().Cyan()} to {targetExecutablePath.Cyan()}");
+            var shimPath = Path.Combine(toolsShimPath, toolCommandName);
+            CreateLink(shimPath, targetExecutablePath);
         }
         else
         {
@@ -263,10 +186,11 @@ internal sealed class LinkCommand : CommandBase
             if (Directory.Exists(packagePath)) Directory.Delete(packagePath, true);
             Directory.CreateDirectory(packagePath);
 
-            File.WriteAllText(
+            await File.WriteAllTextAsync(
                 Path.Combine(packagePath, PackagingCoreConstants.NupkgMetadataFileExtension),
                 /* lang=json */
-                """{ "version": 2, "contentHash": null, "source": null }"""
+                """{ "version": 2, "contentHash": null, "source": null }""",
+                cancellationToken
             );
             CreateLink(Path.Combine(packagePath, id + PackagingCoreConstants.NuspecExtension), nuspecPath);
 
@@ -310,7 +234,7 @@ internal sealed class LinkCommand : CommandBase
                 packageReferenceBuilder.Append("Version".Color(attributeName) + $"=\"{manifest.Metadata.Version}\"".Color(attributeValue));
                 packageReferenceBuilder.Append(' ');
 
-                if (project.GetPropertyValue("DevelopmentDependency")?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false)
+                if (properties["DevelopmentDependency"]?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false)
                 {
                     packageReferenceBuilder.Append("PrivateAssets".Color(attributeName) + "=\"all\"".Color(attributeValue));
                     packageReferenceBuilder.Append(' ');
@@ -319,15 +243,47 @@ internal sealed class LinkCommand : CommandBase
                 packageReferenceBuilder.Append("/>".Color(tagName));
             }
 
-            Reporter.Output.WriteLine(packageReferenceBuilder.ToString());
+            Console.WriteLine(packageReferenceBuilder.ToString());
+        }
+
+        return 0;
+    }
+
+    private static string? GetDotnetHomePath()
+    {
+        var home = Environment.GetEnvironmentVariable("DOTNET_CLI_HOME");
+        if (string.IsNullOrEmpty(home))
+        {
+            home = Environment.GetEnvironmentVariable(OperatingSystem.IsWindows() ? "USERPROFILE" : "HOME");
+            if (string.IsNullOrEmpty(home))
+            {
+                home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                if (string.IsNullOrEmpty(home))
+                {
+                    return null;
+                }
+            }
+        }
+
+        return home;
+    }
+
+    private void CreateLink(string path, string pathToTarget, bool symbolic = true)
+    {
+        if (_copy)
+        {
+            if (File.Exists(path)) File.Delete(path);
+            File.Copy(pathToTarget, path);
+            Console.WriteLine($"Copied {path.TrimCurrentDirectory().Cyan()} to {pathToTarget.TrimCurrentDirectory().Cyan()})");
+        }
+        else
+        {
+            FileUtilities.CreateLink(path, pathToTarget, symbolic);
         }
     }
 
-    public static int Run(ParseResult parseResult)
+    public static async Task<int> RunAsync(ParseResult parseResult, CancellationToken cancellationToken)
     {
-        parseResult.HandleDebugSwitch();
-        parseResult.ShowHelpOrErrorIfAppropriate();
-
-        return new LinkCommand(parseResult).Execute();
+        return await new LinkCommand(parseResult).ExecuteAsync(cancellationToken);
     }
 }

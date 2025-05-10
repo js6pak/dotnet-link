@@ -1,42 +1,27 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>net$(BundledNETCoreAppTargetFrameworkVersion)</TargetFramework>
+        <TargetFramework>net$(NETCoreAppMaximumVersion)</TargetFramework>
         <RootNamespace>DotNetLink</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <InvariantGlobalization>true</InvariantGlobalization>
+        <SatelliteResourceLanguages>en-US</SatelliteResourceLanguages>
 
         <IsPackable>true</IsPackable>
         <PackAsTool>true</PackAsTool>
         <ToolCommandName>dotnet-link</ToolCommandName>
 
         <Description>Symlink a nuget package for easier development</Description>
-
-        <!-- Suppress NU5132 for Microsoft.DotNet.NativeWrapper -->
-        <NoWarn>$(NoWarn);NU5132</NoWarn>
-    </PropertyGroup>
-
-    <PropertyGroup>
-        <DotNetSdk Condition="'$(MSBuildRuntimeType)' == 'Core'">$(MSBuildToolsPath)</DotNetSdk>
-        <DotNetSdk Condition="'$(MSBuildRuntimeType)' != 'Core'">$(NetCoreRoot)/sdk/$(NETCoreSdkVersion)</DotNetSdk>
     </PropertyGroup>
 
     <ItemGroup>
-        <Reference Include="$(DotNetSdk)/System.CommandLine.dll" Private="false" />
-        <Reference Include="$(DotNetSdk)/NuGet.*.dll" Private="false" />
-        <Reference Include="$(DotNetSdk)/Microsoft.DotNet.*.dll" Private="false" />
-        <Reference Include="$(DotNetSdk)/Microsoft.Build.dll" Private="false" />
-        <Reference Include="$(DotNetSdk)/Microsoft.Build.Framework.dll" Private="false" />
-        <Reference Include="$(DotNetSdk)/MSBuild.dll" Private="false" Publicize="true" />
-        <Reference Include="$(DotNetSdk)/dotnet.dll" Private="false" Publicize="true" />
+        <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.24324.3" />
+        <PackageReference Include="NuGet.Packaging" Version="6.13.2" />
 
-        <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.2" PrivateAssets="all" />
+        <!-- These are transitively referenced by NuGet.Packaging, so exclude their assets to avoid the unused native dependency -->
+        <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.4" ExcludeAssets="all" />
+        <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.4" ExcludeAssets="all" />
     </ItemGroup>
-
-    <Target Name="RemoveSatellites" AfterTargets="ResolveAssemblyReferences">
-        <ItemGroup>
-            <ReferenceCopyLocalPaths Remove="@(ReferenceSatellitePaths)" />
-        </ItemGroup>
-    </Target>
 
     <Target Name="InstallTool" DependsOnTargets="Build;Pack">
         <Exec Command="dotnet tool uninstall --global $(PackageId)" ContinueOnError="true" IgnoreExitCode="" />
