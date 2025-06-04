@@ -34,7 +34,7 @@ internal static class DotnetBuildCommand
                 "build",
             };
 
-            if (restore) arguments.Add("/restore");
+            if (!restore) arguments.Add("--no-restore");
 
             if (targets != null) AddListArgument("target", targets);
             if (properties != null) AddListArgument("property", properties.Select(p => $"{p.Key}={p.Value}"));
