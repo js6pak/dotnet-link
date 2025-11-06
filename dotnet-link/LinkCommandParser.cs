@@ -10,9 +10,9 @@ namespace DotNetLink;
 internal static class LinkCommandParser
 {
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_Symbol")]
-    private static extern CliSymbol GetSymbol(CliToken token);
+    private static extern Symbol GetSymbol(Token token);
 
-    public static CliArgument<IEnumerable<string>> SlnOrProjectArgument { get; } = new("PROJECT | SOLUTION")
+    public static Argument<IEnumerable<string>> SlnOrProjectArgument { get; } = new("PROJECT | SOLUTION")
     {
         Description = "The project or solution file to operate on. If a file is not specified, the command will search the current directory for one.",
         Arity = ArgumentArity.ZeroOrMore,
@@ -30,21 +30,21 @@ internal static class LinkCommandParser
         },
     };
 
-    public static CliOption<bool> NoBuildOption { get; } = new("--no-build")
+    public static Option<bool> NoBuildOption { get; } = new("--no-build")
     {
         Description = "Do not build the project before linking",
     };
 
-    public static CliOption<bool> CopyOption { get; } = new("--copy")
+    public static Option<bool> CopyOption { get; } = new("--copy")
     {
         Description = "Copy instead of linking",
     };
 
-    public static CliCommand Command { get; } = ConstructCommand();
+    public static Command Command { get; } = ConstructCommand();
 
-    private static CliRootCommand ConstructCommand()
+    private static RootCommand ConstructCommand()
     {
-        var command = new CliRootCommand("Symlinks a nuget package for easier development")
+        var command = new RootCommand("Symlinks a nuget package for easier development")
         {
             SlnOrProjectArgument,
             NoBuildOption,

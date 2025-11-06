@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2022 js6pak
 
 using System.CommandLine;
+using System.CommandLine.Parsing;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -19,15 +20,15 @@ internal static class Program
 
         RgbAnsiColorExtensions.EnableAnsi();
 
-        var cliConfiguration = new CliConfiguration(LinkCommandParser.Command)
-        {
-            EnableDefaultExceptionHandler = false,
-            EnablePosixBundling = false,
-        };
-
         try
         {
-            return await cliConfiguration.Parse(args).InvokeAsync();
+            return await CommandLineParser.Parse(LinkCommandParser.Command, args, new ParserConfiguration
+            {
+                EnablePosixBundling = false,
+            }).InvokeAsync(new InvocationConfiguration
+            {
+                EnableDefaultExceptionHandler = false,
+            });
         }
         catch (Exception e)
         {

@@ -15,12 +15,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.24324.3" />
-        <PackageReference Include="NuGet.Packaging" Version="6.13.2" />
+        <PackageReference Include="System.CommandLine" Version="2.0.0-rc.2.25502.107" />
+        <PackageReference Include="NuGet.Packaging" Version="6.14.0" />
 
         <!-- These are transitively referenced by NuGet.Packaging, so exclude their assets to avoid the unused native dependency -->
-        <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.4" ExcludeAssets="all" />
-        <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.4" ExcludeAssets="all" />
+        <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.10" ExcludeAssets="all" />
+        <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.10" ExcludeAssets="all" />
     </ItemGroup>
 
     <Target Name="InstallTool" DependsOnTargets="Build;Pack">
