@@ -18,7 +18,7 @@ internal static class LinkCommandParser
         Arity = ArgumentArity.ZeroOrMore,
         CustomParser = argumentResult =>
         {
-            if (argumentResult.Tokens.Count > 1)
+            if (argumentResult.Tokens.Count >= 1)
             {
                 var lastIndexBeforeDoubleDash = argumentResult.Tokens.ToList().FindLastIndex(t => GetSymbol(t) == SlnOrProjectArgument) + 1;
                 argumentResult.OnlyTake(lastIndexBeforeDoubleDash);
