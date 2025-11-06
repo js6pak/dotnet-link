@@ -33,7 +33,7 @@ internal static class DotnetSlnCommand
         var directory = Path.GetDirectoryName(path)!;
 
         var foundHeader = false;
-        foreach (var line in output.Split('\r', '\n'))
+        foreach (var line in output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
         {
             if (!foundHeader)
             {
