@@ -32,12 +32,13 @@ internal static class DotnetBuildCommand
             var arguments = new List<string>
             {
                 "build",
+                "-tl:off",
             };
 
             if (!restore) arguments.Add("--no-restore");
 
             if (targets != null) AddListArgument("target", targets);
-            if (properties != null) AddListArgument("property", properties.Select(p => $"{p.Key}={p.Value}"));
+            if (properties != null) AddListArgument("property", properties.Select(p => $"{p.Key}=\"{p.Value}\""));
 
             if (getResultOutputFile != null) AddArgument("getResultOutputFile", getResultOutputFile);
             if (getProperty != null) AddListArgument("getProperty", getProperty);
@@ -65,7 +66,6 @@ internal static class DotnetBuildCommand
             {
                 FileName = "dotnet",
                 UseShellExecute = false,
-                CreateNoWindow = true,
             };
 
             foreach (var argument in arguments)
@@ -148,7 +148,7 @@ internal static class DotnetBuildCommand
             [property: JsonPropertyName("Result")]
             string Result,
             [property: JsonPropertyName("Items")]
-            Dictionary<string, string> Items
+            Dictionary<string, string>[] Items
         );
     }
 }

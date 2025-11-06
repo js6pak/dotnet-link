@@ -8,14 +8,13 @@ using DotNetLink.Utilities;
 using NuGet.Common;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
-using NuGet.Versioning;
 
 namespace DotNetLink;
 
 internal sealed class LinkCommand
 {
     private readonly IEnumerable<string> _slnOrProjectArgument;
-    private readonly IEnumerable<string> _additionalArguments;
+    private readonly IReadOnlyList<string> _additionalArguments;
     private readonly bool _noBuild;
     private readonly bool _copy;
 
@@ -50,89 +49,84 @@ internal sealed class LinkCommand
             }
         }
 
-        foreach (var slnOrProject in projects)
-        {
-            var exitCode = await LinkAsync(slnOrProject, cancellationToken);
-            if (exitCode != 0)
-            {
-                return exitCode;
-            }
-        }
+        projects.RemoveWhere(p => Path.GetExtension(p) == ".vcxproj");
 
-        return 0;
+        return await LinkAsync(projects, cancellationToken) ? 1 : 0;
     }
 
-    private async Task<int> LinkAsync(string projectPath, CancellationToken cancellationToken)
+    private async Task<bool> LinkAsync(HashSet<string> projects, CancellationToken cancellationToken)
     {
-        var isPackable = await DotnetBuildCommand.GetPropertyAsync(projectPath, "IsPackable", additionalArguments: _additionalArguments);
-        if (!string.Equals(isPackable, "true", StringComparison.OrdinalIgnoreCase))
+        Console.WriteLine($"Packing {projects.Count.ToString().Cyan()} project(s): {string.Join(", ", projects.Select(p => p.TrimCurrentDirectory().Cyan()))}");
+        if (_additionalArguments.Count > 0)
         {
-            Console.WriteLine($"Skipping {projectPath.TrimCurrentDirectory().Cyan()} because it's not packable");
-            return 0;
+            Console.WriteLine($"Additional arguments: {string.Join(' ', _additionalArguments).Cyan()}");
         }
 
-        var projectDirectory = Path.GetDirectoryName(projectPath)!;
+        var properties = new Dictionary<string, string>
+        {
+            ["ProjectsToLink"] = string.Join(';', projects.Select(Path.GetFullPath)),
+        };
 
-        Console.WriteLine($"Linking {projectPath.TrimCurrentDirectory().Cyan()}");
+        if (_noBuild)
+        {
+            properties["NoBuild"] = "true";
+            properties["BuildProjectReferences"] = "false";
+        }
 
         var result = await DotnetBuildCommand.ExecuteAsync(
-            projectPath,
+            Path.Combine(AppContext.BaseDirectory, "DotNetLink.proj"),
             restore: !_noBuild,
-            targets: _noBuild ? ["GenerateNuspec"] : ["Build", "Pack"],
-            properties: new Dictionary<string, string>
-            {
-                // Needed for nugetizer
-                ["EmitNuspec"] = "true",
-            },
-            getProperty:
-            [
-                "IsNuGetized",
-                "NuspecOutputPath",
-                "NuspecPackageId",
-                "PackageId",
-                "PackageVersion",
-                "NuspecFile",
-                "DevelopmentDependency",
-                "ToolCommandName",
-                "RunCommand",
-            ],
+            targets: ["CollectLinkMetadata"],
+            getTargetResult: ["CollectLinkMetadata"],
+            properties: properties,
             additionalArguments: _additionalArguments
         );
 
-        var properties = result!.Properties!;
-
-        var isNuGetized = properties["IsNuGetized"].Equals("true", StringComparison.OrdinalIgnoreCase);
-
-        if (isNuGetized)
+        var targetResult = result!.TargetResults!["CollectLinkMetadata"];
+        if (targetResult.Result != "Success")
         {
-            Console.WriteLine("The project is using nugetizer".Yellow());
+            throw new InvalidOperationException($"Target result was {targetResult.Result}");
         }
 
-        string nuspecPath;
+        var anyFailed = false;
 
-        if (!isNuGetized)
+        foreach (var projectItem in targetResult.Items)
         {
-            var nuspecOutputPath = Path.Combine(projectDirectory, properties["NuspecOutputPath"]).Replace('\\', '/');
-
-            var packageId = properties["NuspecPackageId"];
-            if (string.IsNullOrEmpty(packageId))
+            try
             {
-                packageId = properties["PackageId"];
+                if (!await LinkAsync(projectItem, cancellationToken))
+                {
+                    anyFailed = true;
+                }
             }
-
-            var packageVersion = NuGetVersion.Parse(properties["PackageVersion"]);
-
-            nuspecPath = Path.Combine(nuspecOutputPath, $"{packageId}.{packageVersion.ToNormalizedString()}.nuspec");
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                anyFailed = false;
+            }
         }
-        else
+
+        return anyFailed;
+    }
+
+    private async Task<bool> LinkAsync(Dictionary<string, string> projectItem, CancellationToken cancellationToken)
+    {
+        var projectPath = projectItem["Identity"];
+
+        Console.WriteLine($"Linking {projectPath.TrimCurrentDirectory().Cyan()}");
+
+        var nuspecPath = projectItem["NuspecFile"];
+
+        if (string.IsNullOrEmpty(nuspecPath))
         {
-            nuspecPath = properties["NuspecFile"];
+            Console.WriteLine("Couldn't find a nuspec file");
+            return false;
         }
 
         if (!File.Exists(nuspecPath))
         {
-            Console.WriteLine($"{nuspecPath.TrimCurrentDirectory().Cyan()} doesn't exist".Red());
-            return 1;
+            Console.WriteLine($"{nuspecPath.TrimCurrentDirectory().Cyan()} doesn't exist");
+            return false;
         }
 
         Console.WriteLine($"Linking {nuspecPath.TrimCurrentDirectory().Cyan()}");
@@ -172,8 +166,8 @@ internal sealed class LinkCommand
                 Directory.Delete(packagePath);
             }
 
-            var toolCommandName = properties["ToolCommandName"];
-            var targetExecutablePath = properties["RunCommand"]; // TODO figure out if there is a better way to get apphost path
+            var toolCommandName = projectItem["ToolCommandName"];
+            var targetExecutablePath = projectItem["RunCommand"]; // TODO figure out if there is a better way to get apphost path
 
             var shimPath = Path.Combine(toolsShimPath, toolCommandName);
             CreateLink(shimPath, targetExecutablePath);
@@ -234,7 +228,7 @@ internal sealed class LinkCommand
                 packageReferenceBuilder.Append("Version".Color(attributeName) + $"=\"{manifest.Metadata.Version}\"".Color(attributeValue));
                 packageReferenceBuilder.Append(' ');
 
-                if (properties["DevelopmentDependency"]?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false)
+                if (string.Equals(projectItem["DevelopmentDependency"], "true", StringComparison.OrdinalIgnoreCase))
                 {
                     packageReferenceBuilder.Append("PrivateAssets".Color(attributeName) + "=\"all\"".Color(attributeValue));
                     packageReferenceBuilder.Append(' ');
@@ -246,7 +240,7 @@ internal sealed class LinkCommand
             Console.WriteLine(packageReferenceBuilder.ToString());
         }
 
-        return 0;
+        return true;
     }
 
     private static string? GetDotnetHomePath()

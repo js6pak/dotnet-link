@@ -1,0 +1,25 @@
+<Project>
+    <PropertyGroup>
+        <!-- Needed for nugetizer -->
+        <EmitNuspec>true</EmitNuspec>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <CollectLinkMetadataDependsOn>Pack</CollectLinkMetadataDependsOn>
+        <CollectLinkMetadataDependsOn Condition="'$(NoBuild)' != 'true'">Build;$(CollectLinkMetadataDependsOn)</CollectLinkMetadataDependsOn>
+    </PropertyGroup>
+
+    <Target Name="CollectLinkMetadata" Returns="@(CollectedLinkMetadata)" DependsOnTargets="$(CollectLinkMetadataDependsOn)" Condition="'$(IsPackable)' == 'true'">
+        <PropertyGroup>
+            <NuspecFile Condition="'$(NuspecFile)' == ''">@(NuGetPackOutput->WithMetadataValue('Extension', '.nuspec'))</NuspecFile>
+        </PropertyGroup>
+
+        <ItemGroup>
+            <CollectedLinkMetadata Include="$(MSBuildProjectFullPath)"
+                                   NuspecFile="$(NuspecFile)"
+                                   ToolCommandName="$(ToolCommandName)"
+                                   RunCommand="$(RunCommand)"
+                                   DevelopmentDependency="$(DevelopmentDependency)" />
+        </ItemGroup>
+    </Target>
+</Project>

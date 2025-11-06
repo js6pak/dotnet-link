@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.Build.Traversal/4.1.82">
+    <ItemGroup>
+        <ProjectReference Include="$(ProjectsToLink)" />
+    </ItemGroup>
+
+    <Target Name="CollectLinkMetadata" Returns="@(CollectedLinkMetadata)">
+        <ItemGroup>
+            <_Properties Include="CustomAfterMicrosoftCommonTargets=$(MSBuildThisFileDirectory)DotNetLink.targets" />
+            <_Properties Include="CustomAfterMicrosoftCommonCrossTargetingTargets=$(MSBuildThisFileDirectory)DotNetLink.targets" />
+        </ItemGroup>
+
+        <MSBuild BuildInParallel="true" Projects="%(ProjectReference.Identity)" Targets="CollectLinkMetadata"
+                 Properties="@(_Properties)"
+                 ContinueOnError="true">
+            <Output TaskParameter="TargetOutputs" ItemName="CollectedLinkMetadata" />
+        </MSBuild>
+    </Target>
+</Project>
